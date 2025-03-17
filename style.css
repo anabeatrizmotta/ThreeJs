@@ -1,5 +1,21 @@
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: Arial, sans-serif;
+}
+
 canvas {
   position: fixed;
   top: 0;
   left: 0;
+}
+
+.controls {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  color: white;
+  background: rgba(0,0,0,0.7);
+  padding: 10px;
+  border-radius: 5px;
 }
