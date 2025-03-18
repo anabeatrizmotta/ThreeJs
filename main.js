@@ -3,12 +3,19 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 const scene = new THREE.Scene(); // scene == container
 const textureLoader = new THREE.TextureLoader();
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);  // 1 - field of view. 2 - aspect ratio (user's browser window). 3 and 4 - view frustrum, control visible objects relative to the camera
-camera.position.z = 15;
+const textureURL = "https://s3-us-west-2.amazonaws.com/s.cdpn.io/17271/lroc_color_poles_1k.jpg";
+const displacementURL = "https://s3-us-west-2.amazonaws.com/s.cdpn.io/17271/ldem_3_8bit.jpg";
+
+const texture = textureLoader.load(textureURL);
+const displacementMap = textureLoader.load(displacementURL);
+
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.z = 10;
 
 const renderer = new THREE.WebGLRenderer({
   canvas: document.querySelector('#bg'),
@@ -17,28 +24,50 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x000000);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enablePan = false;
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.rotateSpeed = 0.5;
+controls.zoomSpeed = 1.0;
+controls.minDistance = 4;
+controls.maxDistance = 20;
+
+// bloom Effect
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.5, 0.8, 0.85);
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.3, 0.8, 0.6);
 composer.addPass(bloomPass);
 
-const moon = createMoon();
+// moon
+const moonGeometry = new THREE.SphereGeometry(2, 128, 128);
+const moonMaterial = new THREE.MeshPhongMaterial({
+  color: 0xffffff,
+  map: texture,
+  displacementMap: displacementMap,
+  displacementScale: 0.1,
+  bumpMap: displacementMap,
+  bumpScale: 0.1,
+  reflectivity: 0,
+  shininess: 0
+});
+
+const moon = new THREE.Mesh(moonGeometry, moonMaterial);
+moon.rotation.x = 3.1415 * 0.02;
+moon.rotation.y = 3.1415 * 1.54;
 scene.add(moon);
 
-const sunLight = new THREE.DirectionalLight(0xffffff, 3);
-sunLight.position.set(0, 0, -20);
-sunLight.castShadow = true;
-sunLight.shadow.mapSize.width = 4096;
-sunLight.shadow.mapSize.height = 4096;
-sunLight.shadow.camera.near = 0.1;
-sunLight.shadow.camera.far = 50;
-scene.add(sunLight);
 
-const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
-scene.add(ambientLight);
+const light = new THREE.DirectionalLight(0xFFFFFF, 1);
+light.position.set(-100, 10, 50);
+scene.add(light);
+
+const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.1);
+hemisphereLight.color.setHSL(0.6, 1, 0.6);
+hemisphereLight.groundColor.setHSL(0.095, 1, 0.75);
+hemisphereLight.position.set(0, 0, 0);
+scene.add(hemisphereLight);
 
 const stars = createStarField();
 scene.add(stars);
@@ -60,33 +89,12 @@ function animate() {
   camera.position.y += (targetY - camera.position.y) * 0.05;
   
   camera.lookAt(moon.position);
-  
-  moon.rotation.y += 0.001;
+  controls.update();
+
+  moon.rotation.y += 0.002;
+  moon.rotation.x += 0.0001;
 
   composer.render();
-}
-
-function createMoon() {
-  const textures = {
-    surface: textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/moon_1024.jpg'),
-    normal: textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/moon_normal_1024.jpg'),
-    displacement: textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/moon_displacement_1024.jpg')
-  };
-
-  const geometry = new THREE.SphereGeometry(5, 138, 138);
-  const material = new THREE.MeshStandardMaterial({
-    map: textures.surface,
-    normalMap: textures.normal,
-    displacementMap: textures.displacement,
-    displacementScale: 0.2,
-    roughness: 0.9,
-    metalness: 0.0
-  });
-
-  const moon = new THREE.Mesh(geometry, material);
-  moon.castShadow = true;
-  moon.receiveShadow = true;
-  return moon;
 }
 
 function createStarField() {
@@ -104,7 +112,7 @@ function createStarField() {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
   return new THREE.Points(
     geometry,
-    new THREE.PointsMaterial({ color: 0xFFFFFF, size: 0.2 })
+    new THREE.PointsMaterial({ color: 0xFFFFFF, size: 0.25 })
   );
 }
 
