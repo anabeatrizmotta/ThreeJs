@@ -32,7 +32,7 @@ controls.dampingFactor = 0.05;
 controls.rotateSpeed = 0.5;
 controls.zoomSpeed = 1.0;
 controls.minDistance = 4;
-controls.maxDistance = 20;
+controls.maxDistance = 2000;
 
 // bloom Effect
 const composer = new EffectComposer(renderer);
@@ -40,8 +40,26 @@ composer.addPass(new RenderPass(scene, camera));
 const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.3, 0.8, 0.6);
 composer.addPass(bloomPass);
 
+const EARTH_RADIUS_KM = 6371;
+const MOON_RADIUS_KM = 1737;
+const EARTH_MOON_DIST_KM = 100000;
+
+const SCALE = 1/1000; 
+
+const earthGeometry = new THREE.SphereGeometry(EARTH_RADIUS_KM * SCALE * 1.5, 64, 64);
+const earthTexture = textureLoader.load("https://cdn.jsdelivr.net/gh/mrdoob/three.js@r129/examples/textures/planets/earth_atmos_2048.jpg");
+const earthMaterial = new THREE.MeshPhongMaterial({
+  map: earthTexture,
+  specular: 0x222222,
+  shininess: 25,
+  bumpScale: 0.05,
+});
+
+const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+scene.add(earth);
+
 // moon
-const moonGeometry = new THREE.SphereGeometry(2, 128, 128);
+const moonGeometry = new THREE.SphereGeometry(MOON_RADIUS_KM * SCALE * 1.5, 128, 128);
 const moonMaterial = new THREE.MeshPhongMaterial({
   color: 0xffffff,
   map: texture,
@@ -54,20 +72,18 @@ const moonMaterial = new THREE.MeshPhongMaterial({
 });
 
 const moon = new THREE.Mesh(moonGeometry, moonMaterial);
-moon.rotation.x = 3.1415 * 0.02;
-moon.rotation.y = 3.1415 * 1.54;
+moon.position.set(EARTH_MOON_DIST_KM * SCALE, 0, 0);
 scene.add(moon);
 
+earth.position.set(0, 0, 0);
 
-const light = new THREE.DirectionalLight(0xFFFFFF, 1);
-light.position.set(-100, 10, 50);
-scene.add(light);
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+sunLight.position.set(-500, 200, 500);
+scene.add(sunLight);
 
-const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.1);
-hemisphereLight.color.setHSL(0.6, 1, 0.6);
-hemisphereLight.groundColor.setHSL(0.095, 1, 0.75);
-hemisphereLight.position.set(0, 0, 0);
-scene.add(hemisphereLight);
+let orbitalAngle = 0;
+const orbitalSpeed = (2 * Math.PI) / (27.3 * 24 * 60 * 60); // 27.3 dias em radianos/ms
+const moonOrbitRadius = EARTH_MOON_DIST_KM * SCALE;
 
 const stars = createStarField();
 scene.add(stars);
@@ -79,21 +95,47 @@ document.addEventListener('mousemove', (e) => {
   mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
 });
 
+
+let focusOnMoon = false;
+
+// troca de foco
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    focusOnMoon = !focusOnMoon;
+    controls.target = focusOnMoon ? moon.position : earth.position;
+  }
+});
+
 function animate() {
   requestAnimationFrame(animate);
 
-  // camera com mouse
-  const targetX = mouseX * 10;
-  const targetY = mouseY * 10;
-  camera.position.x += (targetX - camera.position.x) * 0.05;
-  camera.position.y += (targetY - camera.position.y) * 0.05;
+  const now = Date.now();
+  orbitalAngle += orbitalSpeed * 100;
   
-  camera.lookAt(moon.position);
+  moon.position.x = Math.cos(orbitalAngle) * moonOrbitRadius;
+  moon.position.z = Math.sin(orbitalAngle) * moonOrbitRadius;
+  
+  moon.rotation.y = orbitalAngle + Math.PI/2;
+  
+  earth.rotation.y += 0.002;
+
+  sunLight.position.x = Math.cos(now * 0.0001) * 1000;
+  sunLight.position.z = Math.sin(now * 0.0001) * 1000;
+
+  camera.position.x += (mouseX * 15 - camera.position.x) * 0.05;
+  camera.position.y += (mouseY * 15 - camera.position.y) * 0.05;
+
+  if (focusOnMoon) {
+    camera.lookAt(moon.position);
+  } else {
+    camera.lookAt(earth.position);
+  }
+
+  controls.minDistance = 30;
+  controls.maxDistance = 1000;
+
   controls.update();
-
-  moon.rotation.y += 0.002;
-  moon.rotation.x += 0.0001;
-
   composer.render();
 }
 
