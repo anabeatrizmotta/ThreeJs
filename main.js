@@ -143,7 +143,7 @@ function createStarField() {
   const geometry = new THREE.BufferGeometry();
   const vertices = [];
   
-  for(let i = 0; i < 10000; i++) {
+  for (let i = 0; i < 10000; i++) {
     vertices.push(
       THREE.MathUtils.randFloatSpread(2000),
       THREE.MathUtils.randFloatSpread(2000),
@@ -152,11 +152,25 @@ function createStarField() {
   }
 
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+  const starTexture = new THREE.TextureLoader().load(
+    "https://threejs.org/examples/textures/sprites/circle.png"
+  );
+
   return new THREE.Points(
     geometry,
-    new THREE.PointsMaterial({ color: 0xFFFFFF, size: 0.25 })
+    new THREE.PointsMaterial({
+      map: starTexture,
+      color: 0xffffff,
+      size: 1.2,
+      transparent: true,
+      opacity: 0.8,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    })
   );
 }
+
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
